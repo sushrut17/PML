@@ -1,0 +1,112 @@
+---
+title: "Practical Machine Learning Assignment"
+author: "Sushrut Shendre"
+date: "August 9, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warnings = FALSE, cache = TRUE)
+```
+
+##Quantification of activities
+
+##Background
+
+There are devices nowadays by which it is possible to collect data about personal activity. People are able to quantify how much of an activity they can do, but are unable to quantify how well they do it. In this project, we have taken data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. Participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+We have built a prediction model to quantify this activity. We will later use this model to test the 20 cases given to us after this assignment. In this document, we walk you through the processing and thinking behind makin this model.
+
+
+##Data Loading
+
+First, we load the libraries and the data.
+
+```{r}
+library(rpart)
+library(e1071)
+library(caret)
+library(randomForest)
+
+
+training <- read.csv("G:/Data Science Specialization/Practical Machine Learning/pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+testing <- read.csv("G:/Data Science Specialization/Practical Machine Learning/pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+
+set.seed(10082017)
+```
+
+
+##Data Processing
+
+This section deals with the processing of data before prediction models can be built upon them.
+
+```{r}
+dim(training)
+```
+
+The dimensions of the data tell us that the training dataset is a dataframe of 160 columns or variables. We need to trim this in order to have only those columns that are required in our modelling.
+
+First, we remove the first seven columns because they are merely columns giving information about the participant and are hence not required.
+
+```{r}
+training2 <- training[,-c(1:7)]
+```
+
+Next, we look at columns (or variables) that have variance very close to zero. In other words, these variables are almost constant and are thus not required.
+
+```{r}
+f <- nearZeroVar(training2, saveMetrics=FALSE)
+training3 <- training2[,-f]
+```
+
+Finally, we remove all columns where NA's occupy equal to or more than 60% of the rows.
+
+```{r}
+d <- NULL
+for (i in 1:ncol(training3)){
+  if (sum(is.na(training3[,i])) >= 0.6*nrow(training3))
+    {d = c(d,i)}
+}
+training4 <- training3[,-d]
+```
+
+
+Similar variable deduction has to be done for the testing dataset as well in order to maintain consistency.
+
+```{r}
+testing2 <- testing[,-c(1:7)]
+testing3 <- testing2[,-f]
+testing4 <- testing3[,-d]
+```
+
+
+Now, we move towards building prediction algorithms. We create a partition on the update training set on the variable `classe`, and make training and testing datasets, namely `useTraining` and `useTesting`. Please see that this testing dataset is a subset if the training set given to us and is NOT the same as the testing dataset provided to us. The testing dataset provided to us, which has been stored in the dataset `testing` will be used to apply them to the 20 test cases in the subsequent exercise in this course. 
+
+```{r}
+cdp <- createDataPartition(training4$classe, p = 3/4, list = FALSE)
+
+useTraining <- training4[cdp,]
+useTesting <- training4[-cdp,]
+```
+
+We first use the rpartition prediction model and test it against the testing dataset, `useTesting`.
+
+```{r}
+model_rpart <- train(classe ~ ., data = useTraining, method = "rpart")
+pred_rpart <- predict(model_rpart, useTesting)
+conf_matrix_rpart <- confusionMatrix(pred_rpart, useTesting$classe)
+conf_matrix_rpart$overall[1]
+```
+
+As can be seen, the accuracy is quite low.
+
+
+We now try the random forest prediction model.
+
+```{r}
+model_rf <- train(classe ~ ., data = useTraining, method = "rf")
+pred_rf <- predict(model_rf, useTesting)
+conf_matrix_rf <- confusionMatrix(pred_rf, useTesting$classe)
+conf_matrix_rf$overall[1]
+```
+
+The accuracy can be seen to be very high in this model and thus will go by this model to solve the 20 test cases later.
